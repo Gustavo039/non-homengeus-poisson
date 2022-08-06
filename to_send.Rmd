@@ -1,0 +1,104 @@
+---
+title: "Processo de Poisson não-homogêneo"
+author: "Gustavo Almeida Silva"
+date: "06/08/2022"
+output: 
+  html_document:
+    theme: yeti
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Definição de um Processo de Poisson não-homogêneo
+
+O processo de Poisson é um processo de contagem, ou seja, ele busca quantificar quantas observações foram registradas em algum determinado espaço de tempo. 
+Esse processo possui propriedades importantíssimas, onde a função desenvolvida neste trabalho para simular um Processo de Poisson, se utiliza delas:
+
+* Propriedade de falta de memória
+   + Diz respeito à estrutura condicional do processo, onde a probabilidade de ocorrer alguma observação entre os tempos $T_1$ e $T_2$ é independente do número de observações registradas entre $T_0$ e $T_1$
+   
+* Propriedade do Tempo de Chegada: distribuição e independência
+  + O intervalo de tempo entre a chegada de 2 observações seguem uma distribuição Exponencial, onde por conta do processo possuir a propriedade de falta de memória, esses $T_i$ são IID. Assim, a soma de tempos de chegada segue uma Gama
+  
+Em uma simulação de um Processo de Poisson é necessário conhecer a taxa de tempo em qeu essas observação ocorrem
+
+# A utilização da programação linear
+
+# Desenvolvimento das funções
+Utilizando a programação linear para facilitar a leitura dos codigos e a bsuca por possiveis erros.
+
+* Passo 1:
+  + Obtendo o ponto maximo que a função de intensidade pode ter no intervalo [a,b]
+  
+```{r}
+step1=function(lambda_function1,t_initial1=0,t_final1){
+  fixed_lambda1=sapply(t_initial1:t_final1,lambda_function1)
+  fixed_lambda1=max(fixed_lambda1)
+  
+  return(fixed_lambda1)
+}
+```
+  
+* Passo 2:
+  + Calculando o valor do vetor denominado $S_K$, que será um dos argumentos do proximo passo, onde construiremos a função indicadora
+  
+```{r}
+step2=function(size2,t_final2,fixed_lambda2){
+  u=runif(size2)
+  t=(-1/fixed_lambda2)*log(u)
+  s_k2=cumsum(t)
+  s_k2=s_k2[s_k2<t_final2]
+  
+  return(s_k2)
+}
+```
+
+* Passo 3:
+  + Calculando a função indicadora
+  
+```{r}
+step3=function(size3,lambda_function3,s_k3,fixed_lambda3){
+  u=runif(length(s_k3))
+  indicator3=(u<=lambda_function3(s_k3)/fixed_lambda3)
+  indicator3=ifelse(indicator3==T,1,0)
+  
+  return(indicator3)
+}
+
+```
+
+* Passo 4:
+  + Utilizando a função indicadora para calcular os tempos de chegada denomidados $T_K$
+  
+```{r}
+step4=function(indicator4,s_k4){
+  aux=1:sum(indicator4)
+  time_arrival=which(indicator4==1)
+  t_k4=s_k4[time_arrival]
+  
+  return(t_k4)
+}
+```
+
+* Função 'embalagem'
+  + A chamada função embalagem é aquela que utiliza todas as outras funções definidas para construir a simulação do processo. Nela não temos não temos nenhuma definição nova e é a unica a ser disponibilizada ao usuário (user-usable). As funções denominadas 'steps' são chamadas de internal functions, onde o usuario não tem acesso
+  
+```{r}
+non_homo_pp=function(lambda_function,t_initial,t_final){
+  size=10000
+  s1=step1(lambda_function,t_initial,t_final)
+  s2=step2(size,t_final,s1)
+  s3=step3(size,lambda_function,s2,s1)
+  s4=step4(s3,s2)
+  
+  return(s4)
+}
+
+```
+
+  
+# Exemplos
