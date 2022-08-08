@@ -28,7 +28,7 @@ Em uma simulação de um Processo de Poisson é necessário conhecer a taxa de t
 
 # A utilização da programação linear
 
-# Desenvolvimento das funções
+# Desenvolvimento das funções 1 - Função de simulação 
 Utilizando a programação linear para facilitar a leitura dos codigos e a bsuca por possiveis erros.
 
 * Passo 1:
@@ -100,5 +100,26 @@ non_homo_pp=function(lambda_function,t_initial,t_final){
 
 ```
 
+
+# Desenvolvimento das funções 2 - Função de valor esperado e probabilidade
+
+```{r}
+nhpp_mean=function(lambda_function,t_initial,t_final){
+  mean_calc=simple_integral(lambda_f,t_initial,t_final)
+  return(mean_calc)
+}
+```
+
+```{r}
+nhpp_probs=function(lambda_function,t_initial,t_final,k='N'){
+  mean_calc=nhpp_mean(lambda_function,t_initial,t_final)
+  probs_calc=function(q)exp(-1*mean_calc)*(mean_calc^q)/factorial(q)
+  if(is.numeric(k)==T)
+    probs_calc=probs_calc(k)
+  return(probs_calc)
+}
+```
+
   
 # Exemplos
+
