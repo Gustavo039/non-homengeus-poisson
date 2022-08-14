@@ -51,9 +51,9 @@ nhpp_simulation=function(lambda_function,t_initial,t_final){
 }
 
 ##Never use a fucntion with negative values
-lambda_f=function(t)5+5*t
+lambda_f=function(t)dnorm(t)
 
-teste=nhpp_simulation(lambda_f,0,3)
+teste=nhpp_simulation(lambda_f,0,15)
 
 plot(stepfun(teste,0:length(teste)),
      do.points = TRUE,
@@ -91,3 +91,36 @@ nhpp_mean(lambda_f,0,10)
 teste=nhpp_probs(lambda_f,0,3)
 curve(teste,0,100)
 sum(sapply(1:100,teste))
+
+url=read_html('https://statistik.d-u-v.org/getresultevent.php?event=81420&cat=M&country=all&speed=1&aktype=2&Submit.x=26&Submit.y=9')
+
+data=url%>%
+  html_nodes('#EvtRslt td:nth-child(2)')%>%
+  html_text()
+
+data=gsub('h','',data)
+
+data=as.POSIXlt(data,format="%H:%M")
+data=format(data, "%H:%M")
+
+
+
+
+data=sapply(strsplit(data,":"),
+       function(x) {
+         x <- as.numeric(x)
+         x[1]+x[2]/60
+       }
+)
+
+hist(data)
+
+qqnorm(data, main = "", xlab = "Quantis teóricos N(0,1)", pch = 20,
+       ylab = "Velocidade (km/m)")
+qqline(data, lty = 2, col = "red")
+
+media=mean(data)
+desvio=sd(data)
+
+hist(data,freq=F)
+curve(dnorm(x,mean=media,sd=desvio),add=T)

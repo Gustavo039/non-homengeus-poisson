@@ -11,6 +11,8 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(rvest)
+library(tidyverse)
 ```
 
 # Definição de um Processo de Poisson não-homogêneo
@@ -24,12 +26,38 @@ Esse processo possui propriedades importantíssimas, onde a função desenvolvid
 * Propriedade do Tempo de Chegada: distribuição e independência
   + O intervalo de tempo entre a chegada de 2 observações seguem uma distribuição Exponencial, onde por conta do processo possuir a propriedade de falta de memória, esses $T_i$ são IID. Assim, a soma de tempos de chegada segue uma Gama
   
-Em uma simulação de um Processo de Poisson é necessário conhecer a taxa de tempo em qeu essas observação ocorrem
+Em uma simulação de um Processo de Poisson é necessário conhecer a taxa de tempo em que essas observação ocorrem
 
-# A utilização da programação linear
+# A utilização da programação funcional
+
+O trabalho desenvolvido nesse relatório tem em seu objetivo desenvolver funções para a simulação de eventos que possam ser modelados por um **Processo de Poisson não-homogêneo**
+
+Entre exemplos que podem utilizar esse modelos estão:
+ 
+ * Tempo de chegada entre maratonistas
+ 
+ * Quantidade de carros que passam por um determinado radar
+ 
+ * Erros em algum programa de computador
+ 
+ (Voltaremos nesses casos na seção **Exemplos**)
+
+Assim, existe uma ampla gama de casos onde a abordagem via Processo de Poisson pode ser bem-vinda, e visando uma possivel disponibilização de um pacote com as funções desenvolvidas aqui, utilizaremos o conceito da **programação funcional** para uma construção que visa encapsular certas funções, facilitar a leitura dos codigos e otimizar a busca por possiveis erros.
+
+Iremos seguir a seguinte metodologia:
+
+  * Funções pequenas
+   + Prática de separar o algoritmo em funções cada vez mais simples  e que naturalmente irá reduzir o tamanho de cada função
+   
+  * Função e finalidade
+   + Funções devem possuir uma única finalidade, ou seja, não basta simplesmente dividir uma função por causa do seu tamanho, ao particionar uma função em outras menores o foco deve ser justamente o unicidade parâmetro de saída.
+   
+  * Encapsulamento
+   + A função disponivel para uso é a chamada de outras funções menores 
+
 
 # Desenvolvimento das funções 1 - Função de simulação 
-Utilizando a programação linear para facilitar a leitura dos codigos e a bsuca por possiveis erros.
+Utilizando a programação linear para facilitar a leitura dos codigos e a busca por possiveis erros.
 
 * Passo 1:
   + Obtendo o ponto maximo que a função de intensidade pode ter no intervalo [a,b]
@@ -85,10 +113,10 @@ step4=function(indicator4,s_k4){
 ```
 
 * Função 'embalagem'
-  + A chamada função embalagem é aquela que utiliza todas as outras funções definidas para construir a simulação do processo. Nela não temos não temos nenhuma definição nova e é a unica a ser disponibilizada ao usuário (user-usable). As funções denominadas 'steps' são chamadas de internal functions, onde o usuario não tem acesso
+  + A chamada função embalagem é aquela que utiliza todas as outras funções definidas para construir a simulação do processo. Nela não temos nenhuma definição nova e é a unica a ser disponibilizada ao usuário (user-usable). As funções denominadas 'steps' são chamadas de internal functions, onde o usuario não tem acesso
   
 ```{r}
-non_homo_pp=function(lambda_function,t_initial,t_final){
+nhpp_random=function(lambda_function,t_initial,t_final){
   size=10000
   s1=step1(lambda_function,t_initial,t_final)
   s2=step2(size,t_final,s1)
@@ -98,10 +126,56 @@ non_homo_pp=function(lambda_function,t_initial,t_final){
   return(s4)
 }
 
+nhpp_simulation=function(lambda_function,t_initial,t_final){
+  monte_carlo=unlist(replicate(10,nhpp_random(lambda_function,t_initial,t_final)))
+  delta=t_final-t_initial
+  sample_k=sort(sample(monte_carlo,delta))
+  return(sample_k)
+  
+}
+```
+
+* Função gráfica
+  + A função definida anteriormente tem a finalidade de apenas simular um processo, e buscando faciliatar a visualização gráfica dele, foi desenvolvida a função **nhpp_view**
+  
+```{r}
+nhpp_view=function(data,col_view='red',main_text='Simulation plot'){
+  plot(stepfun(data,0:length(data)),
+     do.points = TRUE,
+     pch = 16,
+     col.points = col_view,
+     verticals = FALSE,
+     main = main_text,
+     xlab='Time',
+     ylab='Arrival Time'
+     )
+}
+
+```
+
+
+```{r}
+lambda_t=function(t)sin(t)
+teste=nhpp_simulation(lambda_t,0,100)
+nhpp_view(teste)
+
 ```
 
 
 # Desenvolvimento das funções 2 - Função de valor esperado e probabilidade
+
+```{r}
+simple_integral=function(func,a,b){
+  size=50000
+  u=runif(size,min=a,max=b)
+  y_func=func(u)
+  y_mean=mean(y_func)
+  area=(b-a)*y_mean
+  return(area)
+}
+
+```
+
 
 ```{r}
 nhpp_mean=function(lambda_function,t_initial,t_final){
@@ -120,6 +194,88 @@ nhpp_probs=function(lambda_function,t_initial,t_final,k='N'){
 }
 ```
 
-  
+
+
 # Exemplos
+
+## Tempo de chegada em uma maratona
+
+Nesse exemplo usamos os dados retirados do website *https://www.ultra-marathon.org/*, que disponibiliza dados de ultra maratonas realizadas na Europa.
+
+Buscando um tamanho amostral grande para análise, utilizamos os dados da seguinte corrida: **Cortina Trail Dara  Ultramaratona**, uma ultramaratona que ocorreu no dia *24/06/2022* na Italia, onde cerca de 1000 maratonistas masculinos terminaram a prova.(*https://statistik.d-u-v.org/getresultevent.php?event=81420&cat=M&country=all&speed=1&aktype=2&Submit.x=26&Submit.y=9*)
+
+Para a obtenção de dados, a página não oferecia suporte a download em versão csv, xlss e etc, assim foi preciso utilizar o metodo de Web Scraping.
+Para isso, utilizamos o pacote **rvest** e a extensão do Google Chrome Gadge Selector.
+
+* Passo 1
+  + Nessa primeira etapa, retiramos os dados da página web, selecionando apenas as variaveis de interesse usando a extensão Gadge Selector, e armazenamos eles em uma variavel 
+ 
+```{r}
+url=read_html('https://statistik.d-u-v.org/getresultevent.php?event=81420&cat=M&country=all&speed=1&aktype=2&Submit.x=26&Submit.y=9')
+
+data=url%>%
+  html_nodes('#EvtRslt td:nth-child(2)')%>%
+  html_text()
+```
+ 
+* Passo 2
+  + Com esses dados ja armazedados, realizamos uma pequena manipulação, retirando a parte dos segundos e transformando para uma variável do tipo *data*
+  
+```{r}
+data=gsub('h','',data)
+
+data=as.POSIXlt(data,format="%H:%M")
+data=format(data, "%H:%M")
+
+```
+
+* Passo 3
+  + Para a analise, temos que transformar a variável para o tipo numérico (decimal), e fizemos isso por meio da seguinte função
+
+```{r}
+data=sapply(strsplit(data,":"),
+       function(x) {
+         x <- as.numeric(x)
+         x[1]+x[2]/60
+       }
+)
+
+```
+
+* Dados Obtidos
+
+```{r}
+head(data)
+summary(data)
+length(data)
+```
+
+
+Com os dados armazenados, podemos iniciar nosso estudo em cima deles
+
+Primeiro, fazendo uma simples analise exploratoria
+
+```{r}
+hist(data)
+```
+
+Pelo histograma gerado, podemos ver que a distribuição dos dados sugere algum modelo que segue a normalidade
+
+```{r}
+mean_data=mean(data)
+sd_data=sd(data)
+```
+
+Testando uma normal com paremetros de locacação = media amostral e escala = variancia amostral
+```{r}
+hist(data,freq=F)
+curve(dnorm(x,mean=mean_data,sd=sd_data),add=T)
+```
+
+```{r}
+set.seed(1)
+lambda_t=function(t)dnorm(t,mean=mean_data,sd=sd_data)
+teste=nhpp_simulation(lambda_t,0,10)
+nhpp_view(teste)
+```
 
